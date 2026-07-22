@@ -9,3 +9,6 @@ Thumbs.db
 # Python（決定論lint tools/ のキャッシュ）
 __pycache__/
 *.pyc
+
+# superpowers/SDD の作業スクラッチ（開発残骸・共有しない）
+.superpowers/

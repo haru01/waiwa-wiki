@@ -1,4 +1,4 @@
-<!-- 生成物: gen_views.py relations による機械生成。手編集禁止。`python3 tools/gen_views.py relations` で再生成する。生成基準日: 2026-07-22（モード 探索） -->
+<!-- 生成物: gen_views.py relations による機械生成。手編集禁止。`python3 tools/gen_views.py relations` で再生成する。生成基準日: 2026-07-23（モード 探索） -->
 
 # 関係グラフ（self）
 
@@ -17,10 +17,14 @@ flowchart LR
       SELF_C_003["C-003 作り手であり、抽象を言語化する整理役"]
       SELF_C_004["C-004 社内のエンジニア／チーム（試作を見せられ…"]
     end
+    subgraph ACT["試行 ACT"]
+      SELF_ACT_001["ACT-001 訪問先マネージャにwaiwa-wikiを…"]
+    end
     SELF_P_001 -->|接地する制約| SELF_C_001
     SELF_P_001 -->|接地する制約| SELF_C_002
     SELF_P_001 -->|接地する制約| SELF_C_003
     SELF_P_001 -->|接地する制約| SELF_C_004
+    SELF_ACT_001 -->|検証対象| SELF_P_001
 ```
 
 ## 関係インデックス
@@ -48,7 +52,9 @@ flowchart LR
 
 ### 検証対象（`purposes`: ACT→P）
 
-（該当なし）
+| 始点 | 関係 | 終点 |
+|---|---|---|
+| [[SELF-ACT-001]] | 検証対象 → | [[SELF-P-001]] |
 
 ### 内省対象（`reflects-on`: REF→P）
 
@@ -64,6 +70,7 @@ flowchart LR
 - [[SELF-C-002]] ← 接地する目的: [[SELF-P-001]]
 - [[SELF-C-003]] ← 接地する目的: [[SELF-P-001]]
 - [[SELF-C-004]] ← 接地する目的: [[SELF-P-001]]
+- [[SELF-P-001]] ← 検証活動: [[SELF-ACT-001]]
 
 ## 目的↔制約 接地（grounded-in）
 

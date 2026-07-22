@@ -1,0 +1,120 @@
+#!/usr/bin/env python3
+"""キャリア目的形成Wiki オントロジーのローダ（唯一の正本 ontology.yaml を読む）。
+
+語彙(enum)・型・関係・状態機械の定義はすべて ../ontology.yaml に集約し、
+このモジュールがそれを Python 側の定数（hwlint.py・gen_views.py が使う形）に射影する。
+コード側に enum を再定義しない＝二重管理・ドリフトを防ぐための単一の入口。
+
+依存は PyYAML のみ（hwlint / gen_views を import しない＝循環回避）。
+"""
+import re
+from functools import lru_cache
+from pathlib import Path
+
+import yaml
+
+ONTOLOGY_PATH = Path(__file__).resolve().parent.parent / "ontology.yaml"
+
+
+@lru_cache(maxsize=1)
+def load() -> dict:
+    """ontology.yaml をパースして dict で返す（プロセス内で1回だけ読む）。"""
+    return yaml.safe_load(ONTOLOGY_PATH.read_text(encoding="utf-8"))
+
+
+class Relation:
+    """関係型1件。domain→range・cardinality・inverse を保持する。"""
+    __slots__ = ("name", "field", "domain", "range", "domain_subtypes", "range_subtypes",
+                 "cardinality", "inverse", "must_wikilink", "label", "inverse_label", "description")
+
+    def __init__(self, d: dict):
+        self.name = d["name"]
+        self.field = d["field"]
+        self.domain = d["domain"]                       # エンティティ種別 "P"/"C"/"ACT"/"REF"/"DEC"
+        self.range = d["range"]
+        self.domain_subtypes = set(d.get("domain-subtypes", []))
+        self.range_subtypes = set(d.get("range-subtypes", []))
+        self.cardinality = d.get("cardinality", "many")  # "one" | "many"
+        self.inverse = d.get("inverse", "")
+        self.must_wikilink = bool(d.get("must-wikilink", False))
+        self.label = d.get("label", self.name)
+        self.inverse_label = d.get("inverse-label", self.inverse)
+        self.description = d.get("description", "")
+
+    @property
+    def is_single(self) -> bool:
+        return self.cardinality == "one"
+
+
+def _subtype_names(entity: str) -> list:
+    return [s["name"] for s in load()["entities"][entity]["subtypes"]]
+
+
+# ── エンティティ種別ごとの type 語彙(enum) ───────────────────────────
+# サブタイプを持たない種別（P・REF）は空集合＝type フィールドを検証しない。
+TYPES_BY_ENTITY = {key: set(_subtype_names(key)) for key in load()["entities"]}
+P_TYPES = TYPES_BY_ENTITY.get("P", set())
+C_TYPES = TYPES_BY_ENTITY.get("C", set())
+ACT_TYPES = TYPES_BY_ENTITY.get("ACT", set())
+REF_TYPES = TYPES_BY_ENTITY.get("REF", set())
+DEC_TYPES = TYPES_BY_ENTITY.get("DEC", set())
+
+# エンティティ種別 → dir / label / id-infix
+ENTITY_INFIXES = list(load()["entities"].keys())           # ["P", "C", "ACT", "REF", "DEC"]
+ENTITY_DIRS = {key: ent["dir"] for key, ent in load()["entities"].items()}
+ENTITY_LABELS = {key: ent["label"] for key, ent in load()["entities"].items()}
+ID_RE = re.compile(r"^[A-Z0-9]+-(?:" + "|".join(map(re.escape, ENTITY_INFIXES)) + r")-\d+$")
+
+# ── 状態機械 ────────────────────────────────────────────────────────
+_SM = load()["state-machines"]
+
+_STATUS_LIST = _SM["statuses"]
+STATUSES = {s["name"] for s in _STATUS_LIST}
+STATUS_ORDER = [s["name"] for s in _STATUS_LIST]
+STATUS_EMOJI = {s["name"]: s["emoji"] for s in _STATUS_LIST}
+
+CONFIDENCE_MIN = _SM["confidence"]["min"]
+CONFIDENCE_MAX = _SM["confidence"]["max"]
+FICTIONAL_CAP = _SM["confidence"].get("fictional-cap", 8)
+FICTIONAL_MARKERS = tuple(_SM["confidence"].get("fictional-markers", ("架空", "シミュレーション")))
+# status → 確信度の許容域 {status: {"min"/"max": n}}（status↔confidence 矛盾検出に使う）
+STATUS_BOUNDS = {k: dict(v) for k, v in _SM["confidence"].get("status-bounds", {}).items()}
+# 確信度の帯 → 要求する証拠の階梯の最低段 [(min_confidence, floor_name), ...]（強い順に評価）
+EVIDENCE_FLOOR = sorted(
+    ((e["min-confidence"], e["floor"]) for e in _SM["confidence"].get("evidence-floor", [])),
+    reverse=True)
+
+# 証拠の階梯（序列あり）＝「外界にどれだけ触れたか」＋補助タグ（序列外）。本文タグは 〈…〉 で書く。
+EVIDENCE_LADDER = list(_SM["evidence-ladder"])
+EVIDENCE_AUX = list(_SM.get("evidence-aux", []))
+# 階梯上の順位（0=最弱＝〈壁打ち〉）。確信度×証拠の整合チェック（hwlint）に使う。
+EVIDENCE_RANK = {name: i for i, name in enumerate(EVIDENCE_LADDER)}
+# 本文の根拠セルで許容される証拠種別タグ（山括弧つき。階梯＋補助）。
+EVIDENCE_TAGS = tuple(f"〈{t}〉" for t in EVIDENCE_LADDER + EVIDENCE_AUX)
+# 「外界に触れた」証拠の最弱段の順位（これ以上の階梯タグでのみ確信度を上げてよい）。
+# 階梯の 0 段目（〈壁打ち〉）は対話のみ＝外界に触れていないので上昇の根拠にならない。
+EXTERNAL_RANK_MIN = 1
+
+# ── 関係 ────────────────────────────────────────────────────────────
+RELATIONS = [Relation(d) for d in load()["relations"]]
+RELATIONS_BY_FIELD = {r.field: r for r in RELATIONS}
+
+
+def _selfcheck() -> int:
+    """ontology.yaml がパースでき、期待どおりの定数を導出できるか点検する。"""
+    load()
+    assert ACT_TYPES and DEC_TYPES and C_TYPES, "type enum が空（C/ACT/DEC）"
+    assert STATUS_ORDER and set(STATUS_ORDER) == STATUSES, "status 定義の不整合"
+    assert set(ENTITY_INFIXES) == {"P", "C", "ACT", "REF", "DEC"}, "エンティティ種別が期待と違う"
+    assert EVIDENCE_LADDER and EVIDENCE_RANK.get(EVIDENCE_LADDER[0]) == 0, "証拠の階梯が空/不整合"
+    for r in RELATIONS:
+        assert r.domain in ENTITY_INFIXES and r.range in ENTITY_INFIXES, f"{r.name} の domain/range 不正"
+        assert r.cardinality in ("one", "many"), f"{r.name} の cardinality 不正"
+    print(f"ontology.yaml OK: entities={ENTITY_INFIXES} "
+          f"relations={[r.name for r in RELATIONS]} statuses={STATUS_ORDER} "
+          f"evidence-ladder={EVIDENCE_LADDER}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(_selfcheck())

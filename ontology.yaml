@@ -1,0 +1,179 @@
+# キャリア目的形成Wiki オントロジー（SSoT・全案件共有）
+#
+# このファイルが語彙・型・関係・状態機械の唯一の正本(Single Source of Truth)。
+# - ツール（tools/hwlint.py・tools/gen_views.py）は tools/ontology.py 経由でここを読む。
+#   enum 等をコードに再定義しない（＝二重管理・ドリフト防止）。
+# - 人間可読な要約 ontology.md は `python3 tools/gen_ontology_doc.py` でここから生成する（手編集禁止）。
+#
+# 用語:
+#   entity   = レコード種別（P / C / ACT / REF / DEC）とそのサブタイプ（frontmatter type の enum）
+#   relation = レコード間の型付きリンク。domain（始点の型）→ range（終点の型）、
+#              cardinality（one=単一 / many=配列）、inverse（逆方向の呼称）を宣言する。
+#   各 relation は frontmatter 配列 と 本文 wikilink の二重表現を持つ（must-wikilink: true）。
+
+version: 1
+
+# ── エンティティ（レコード種別とサブタイプ） ─────────────────────────────
+entities:
+  P:
+    label: 目的仮説
+    dir: purposes
+    # 目的仮説。確信度（目的の硬さ）を持つ。当事者性温度（関わりの深さ）は
+    # frontmatter engagement-temp に予約するが、フェーズ1では未使用（状態機械で検証しない）。
+    subtypes: []          # サブタイプなし（写像元の価値連鎖 role は撤去）
+
+  C:
+    label: 制約・手中の鳥
+    dir: constraints
+    # Effectuation の「手中の鳥」。目的の出発点となる所与の資源。
+    subtypes:
+      - {name: 自分は誰か}       # アイデンティティ・価値観・好み
+      - {name: 何を知っているか}  # 知識・経験・専門
+      - {name: 誰を知っているか}  # 人的ネットワーク
+
+  ACT:
+    label: 試行
+    dir: activities
+    # 外界への働きかけ（ReAct の Act）。self-reflection は「ゆさぶり」監査の記録用（内省 REF とは別）。
+    subtypes:
+      - {name: 打診}            # 声かけ・提案・打診
+      - {name: やってみる}       # 試作・小さく実行
+      - {name: 面談}            # 面談・インタビュー・対話
+      - {name: 観察}            # 観察・現場を見る
+      - {name: self-reflection}  # ゆさぶり（反証監査）活動。テストカード付き
+
+  REF:
+    label: 内省
+    dir: reflections
+    # ReAct の Reason/Observe。事実／解釈／驚き を記録する。確信度は持たない。
+    subtypes: []
+
+  DEC:
+    label: 意思決定
+    dir: decisions
+    subtypes:
+      - {name: モード切替}        # 探索⇄深掘りの切り替え
+      - {name: ピボット}
+      - {name: 継続}
+      - {name: 巻き戻し}
+      - {name: 棚上げ}
+      - {name: 意図的引き下げ}    # 停滞検知による確信度の意図的引き下げ（フェーズ2で本格使用）
+
+# ── 関係（型付きリンク） ─────────────────────────────────────────────
+# field         = frontmatter キー
+# domain / range= 始点 / 終点のエンティティ種別
+# *-subtypes    = 省略可。サブタイプまで制約する場合のみ
+# cardinality   = one（単一）| many（配列）
+# inverse       = 逆方向の呼称（バックリンク表示・ナビゲーションに使う）
+# must-wikilink = true なら本文にも wikilink を張る（Obsidian グラフに辺を出すため）
+relations:
+  - name: derived-from
+    field: derived-from
+    domain: P
+    range: P
+    cardinality: one
+    inverse: derives
+    must-wikilink: true
+    label: 派生元
+    inverse-label: 派生先
+    description: 派生・ピボット・巻き戻し再出発の系譜（この目的仮説の派生元）
+
+  - name: leads-to
+    field: leads-to
+    domain: P
+    range: P
+    cardinality: many
+    inverse: led-from
+    must-wikilink: true
+    label: 因果先
+    inverse-label: 因果元
+    description: 因果的に導く先の目的仮説。list の mermaid 系譜グラフの矢印になる
+
+  - name: grounded-in
+    field: grounded-in
+    domain: P
+    range: C
+    cardinality: many
+    inverse: grounds
+    must-wikilink: true
+    label: 接地する制約
+    inverse-label: 接地する目的
+    description: この目的仮説が根ざす手中の鳥（制約）。Effectuation の接地
+
+  - name: revises
+    field: revises
+    domain: P
+    range: P
+    cardinality: one
+    inverse: revised-by
+    must-wikilink: true
+    label: 書き換え元
+    inverse-label: 書き換え先
+    description: この目的仮説が書き換える／撤回する旧目的仮説（前言撤回の一級市民化）
+
+  - name: purposes
+    field: purposes
+    domain: ACT
+    range: P
+    cardinality: many
+    inverse: validated-by
+    must-wikilink: true
+    label: 検証対象
+    inverse-label: 検証活動
+    description: この試行が検証する目的仮説
+
+  - name: reflects-on
+    field: reflects-on
+    domain: REF
+    range: P
+    cardinality: many
+    inverse: reflected-by
+    must-wikilink: true
+    label: 内省対象
+    inverse-label: 内省
+    description: この内省が対象とする目的仮説
+
+  - name: based-on
+    field: based-on
+    domain: DEC
+    range: ACT
+    cardinality: many
+    inverse: informs
+    must-wikilink: true
+    label: 根拠活動
+    inverse-label: 導いた判断
+    description: この意思決定の根拠となった試行
+
+# ── 状態機械 ────────────────────────────────────────────────────────
+state-machines:
+  # 形成ステータス（並び順 = ビューの集計・表示順）
+  statuses:
+    - {name: 未検証,            emoji: "⚪"}
+    - {name: 探索中,            emoji: "🔍"}
+    - {name: 立ち上がりつつある, emoji: "🌱"}
+    - {name: 立ち上がった,       emoji: "✅"}
+    - {name: 棚上げ,            emoji: "🗄️"}
+
+  # 確信度（1-10）＝「目的の硬さ」。当事者性温度（関わりの深さ）とは別軸（第二軸はフェーズ1未実装）。
+  confidence:
+    min: 1
+    max: 10
+    fictional-cap: 8          # 架空／脳内シミュレーション由来の確信度は上限8
+    fictional-markers: [架空, シミュレーション]   # 架空データを示す本文マーカー語彙（fictional-cap 判定に使う）
+    # status × 確信度の許容域（外れたら warning）。
+    status-bounds:
+      立ち上がった: {min: 7}     # 立ち上がったのに確信度が低い
+      棚上げ:      {max: 4}     # 棚上げなのに確信度が高い
+      未検証:      {max: 4}     # 未検証なのに確信度が高い（証拠なき高確信）
+      # 探索中・立ち上がりつつある は幅広く正当。境界を設けない。
+    # 確信度の帯ごとに要求する証拠の階梯の最低段（evidence-ladder の名）。
+    evidence-floor:
+      - {min-confidence: 5, floor: 試行}      # 5-6 は〈試行〉以上（＝外界に触れた証拠）を要する
+      - {min-confidence: 7, floor: 他者反応}   # 7-8 は〈他者反応〉以上を要する
+
+  # 証拠の階梯（弱→強）＝「外界にどれだけ触れたか」。確信度を上げる根拠の強さの序列。
+  # 〈壁打ち〉はエージェントとの対話のみ＝外界に触れていない最弱段（単体では確信度を上げられない）。
+  # 本文の根拠セルでは 〈試行〉のように山括弧つきで書く（ツールが山括弧を補う）。
+  evidence-ladder: [壁打ち, 試行, 他者反応, 継続]
+  # 階梯外の補助タグ（強さの序列を持たない証拠種別）。〈架空〉=架空/脳内シミュレーション由来。
+  evidence-aux: [架空]

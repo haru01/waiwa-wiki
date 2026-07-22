@@ -18,7 +18,7 @@ flowchart LR
       SELF_C_004["C-004 社内のエンジニア／チーム（試作を見せられ…"]
     end
     subgraph ACT["試行 ACT"]
-      SELF_ACT_001["ACT-001 訪問先マネージャにwaiwa-wikiを…"]
+      SELF_ACT_001["ACT-001 訪問先マネージャ2人にwaiwa-wik…"]
     end
     SELF_P_001 -->|接地する制約| SELF_C_001
     SELF_P_001 -->|接地する制約| SELF_C_002

@@ -28,6 +28,9 @@
 | **検証対象** | `purposes` | ACT → P | 配列(many) | validated-by（検証活動） | 必須 | この試行が検証する目的仮説 |
 | **内省対象** | `reflects-on` | REF → P | 配列(many) | reflected-by（内省） | 必須 | この内省が対象とする目的仮説 |
 | **根拠活動** | `based-on` | DEC → ACT | 配列(many) | informs（導いた判断） | 必須 | この意思決定の根拠となった試行 |
+| **影響目的** | `affects` | DEC → P | 配列(many) | affected-by（影響した判断） | 必須 | この意思決定が動かした目的仮説（ピボット・巻き戻し・意図的引き下げ等の対象）。目的側から形成の来歴を辿れる |
+| **上書き元** | `supersedes` | DEC → DEC | 配列(many) | superseded-by（上書きした判断） | 必須 | この意思決定が上書き／後継する旧意思決定（旧判断を消さずに覆しの系譜を残す） |
+| **対抗** | `counters` | P → P | 配列(many) | countered-by（対抗される） | 必須 | この目的仮説が対抗する目的仮説（/lemonade 由来の対立仮説・ピボットの種。偽の収束への歯止め） |
 
 ## 状態機械
 

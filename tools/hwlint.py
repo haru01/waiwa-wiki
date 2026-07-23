@@ -556,20 +556,26 @@ def check_staleness(project) -> list:
 
 
 def check_relation_cycles(project) -> list:
-    """P→P 関係（derived-from / leads-to / revises）の自己参照・循環を検出する（error）。"""
+    """domain==range の関係（P→P の derived-from / leads-to / revises / counters、DEC→DEC の
+    supersedes）の自己参照・循環を検出する（error）。
+
+    自己参照（A→A）は常に禁止。多ノード循環（A→B→A）は rel.acyclic が真のときだけ禁止する
+    （counters のように相互対抗 A↔B が正当な関係は acyclic:false で循環扱いしない）。"""
     problems = []
     for rel in RELATIONS:
-        if not (rel.domain == "P" and rel.range == "P"):
+        if rel.domain != rel.range:
             continue
         graph = {}
         for stem, (_, fm, _) in project.records.items():
-            if entity_of(stem) != "P":
+            if entity_of(stem) != rel.domain:
                 continue
             graph[stem] = [r for r in parse_id_array(fm.get(rel.field, "")) if r in project.records]
         for node, outs in graph.items():
             if node in outs:
                 problems.append(Problem("error", node, "relation-cycle",
                     f"{rel.field}（{rel.label}）が自己参照している"))
+        if not rel.acyclic:
+            continue   # 相互ループを許容する関係（例: counters）は多ノード循環を検査しない
         # DFS で閉路検出（自己参照は上で報告済みなので除く）
         WHITE, GRAY, BLACK = 0, 1, 2
         color = {n: WHITE for n in graph}

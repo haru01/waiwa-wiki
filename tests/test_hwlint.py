@@ -97,14 +97,16 @@ reflects-on: {reflects_on}
 """
 
 
-def dec(id="DEMO-DEC-001", type="ピボット", based_on="[DEMO-ACT-001]", body="根拠: [[DEMO-ACT-001]]"):
+def dec(id="DEMO-DEC-001", type="ピボット", based_on="[DEMO-ACT-001]", body="根拠: [[DEMO-ACT-001]]",
+        extra=""):
+    extra_line = (extra + "\n") if extra else ""
     return f"""---
 id: {id}
 title: テスト決定
 date: 2026-07-02
 type: {type}
 based-on: {based_on}
----
+{extra_line}---
 
 # テスト決定
 
@@ -611,6 +613,94 @@ class RelationCycleTest(unittest.TestCase):
             self.assertEqual(only(root, "relation-cycle"), [])
 
 
+class AffectsTest(unittest.TestCase):
+    """E3: DEC→P（affects）。意思決定が動かした目的仮説。"""
+
+    def test_valid_affects_ok(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/purposes/DEMO-P-001.md": purpose(),
+                "wiki/activities/DEMO-ACT-001.md": act(),
+                "wiki/decisions/DEMO-DEC-001.md": dec(extra="affects: [DEMO-P-001]",
+                                                      body="根拠: [[DEMO-ACT-001]]\n\n影響した目的: [[DEMO-P-001]]"),
+            })
+            self.assertEqual(only(root, "refs"), [])
+
+    def test_affects_range_violation_points_to_purpose(self):
+        # affects は P を指すべき（ACT を指したら違反）
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/activities/DEMO-ACT-001.md": act(),
+                "wiki/decisions/DEMO-DEC-001.md": dec(extra="affects: [DEMO-ACT-001]",
+                                                      body="根拠: [[DEMO-ACT-001]]"),
+            })
+            self.assertTrue(any("P を指すべき" in p.message for p in only(root, "refs")))
+
+
+class SupersedesTest(unittest.TestCase):
+    """E4: DEC→DEC（supersedes）。旧意思決定の上書き/後継。循環は禁止（acyclic）。"""
+
+    def test_valid_supersedes_ok(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/purposes/DEMO-P-001.md": purpose(),      # act() の purposes 参照先
+                "wiki/activities/DEMO-ACT-001.md": act(),
+                "wiki/decisions/DEMO-DEC-001.md": dec(),
+                "wiki/decisions/DEMO-DEC-002.md": dec(id="DEMO-DEC-002", extra="supersedes: [DEMO-DEC-001]",
+                                                      body="根拠: [[DEMO-ACT-001]]\n\n上書き: [[DEMO-DEC-001]]"),
+            })
+            self.assertEqual(only(root, "refs"), [])
+            self.assertEqual(only(root, "relation-cycle"), [])
+
+    def test_self_reference_detected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/activities/DEMO-ACT-001.md": act(),
+                "wiki/decisions/DEMO-DEC-001.md": dec(extra="supersedes: [DEMO-DEC-001]"),
+            })
+            self.assertTrue(only(root, "relation-cycle"))
+
+    def test_cycle_detected(self):
+        d1 = dec(id="DEMO-DEC-001", extra="supersedes: [DEMO-DEC-002]", body="上書き: [[DEMO-DEC-002]]")
+        d2 = dec(id="DEMO-DEC-002", extra="supersedes: [DEMO-DEC-001]", body="上書き: [[DEMO-DEC-001]]")
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/activities/DEMO-ACT-001.md": act(),
+                "wiki/decisions/DEMO-DEC-001.md": d1,
+                "wiki/decisions/DEMO-DEC-002.md": d2,
+            })
+            self.assertTrue(only(root, "relation-cycle"))
+
+
+class CountersTest(unittest.TestCase):
+    """E4: P→P（counters）。対抗目的。自己参照は禁止だが相互対抗 A↔B は許容（acyclic:false）。"""
+
+    def test_valid_counters_ok(self):
+        p1 = purpose(id="DEMO-P-001", extra="counters: [DEMO-P-002]", body_extra="対抗: [[DEMO-P-002]]")
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/purposes/DEMO-P-001.md": p1,
+                "wiki/purposes/DEMO-P-002.md": purpose(id="DEMO-P-002"),
+            })
+            self.assertEqual(only(root, "refs"), [])
+            self.assertEqual(only(root, "relation-cycle"), [])
+
+    def test_self_reference_detected(self):
+        p1 = purpose(id="DEMO-P-001", extra="counters: [DEMO-P-001]")
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {"wiki/purposes/DEMO-P-001.md": p1})
+            self.assertTrue(only(root, "relation-cycle"))
+
+    def test_mutual_counter_allowed(self):
+        # A↔B の相互対抗は正当＝循環扱いしない（acyclic:false）
+        p1 = purpose(id="DEMO-P-001", extra="counters: [DEMO-P-002]", body_extra="対抗: [[DEMO-P-002]]")
+        p2 = purpose(id="DEMO-P-002", extra="counters: [DEMO-P-001]", body_extra="対抗: [[DEMO-P-001]]")
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {"wiki/purposes/DEMO-P-001.md": p1,
+                                      "wiki/purposes/DEMO-P-002.md": p2})
+            self.assertEqual(only(root, "relation-cycle"), [])
+
+
 class OntologyLoaderTest(unittest.TestCase):
     def test_selfcheck_passes(self):
         self.assertEqual(ontology._selfcheck(), 0)
@@ -619,8 +709,8 @@ class OntologyLoaderTest(unittest.TestCase):
         self.assertEqual(ontology.STATUS_ORDER,
                          ["未検証", "探索中", "立ち上がりつつある", "立ち上がった", "棚上げ"])
         self.assertEqual({r.field for r in ontology.RELATIONS},
-                         {"derived-from", "leads-to", "grounded-in", "revises",
-                          "purposes", "reflects-on", "based-on"})
+                         {"derived-from", "leads-to", "grounded-in", "revises", "counters",
+                          "purposes", "reflects-on", "based-on", "affects", "supersedes"})
         self.assertIn("面談", ontology.ACT_TYPES)
         self.assertIn("self-reflection", ontology.ACT_TYPES)
         self.assertIn("自分は誰か", ontology.C_TYPES)

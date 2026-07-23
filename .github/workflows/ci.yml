@@ -1,0 +1,39 @@
+name: CI
+
+# キャリア目的形成Wiki の決定論チェックを push / PR で強制する。
+# ローカルの .githooks/pre-commit と同じ不変ルールのうち、環境非依存で常に有効な
+# チェック（オントロジー自己点検・lint・ユニットテスト・ontology.md 同期）を回す。
+# ビュー（board/list/relations）はヘッダに生成基準日を含み日付依存なので同期チェックしない。
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 依存インストール
+        run: pip install -r requirements.txt
+
+      - name: オントロジー自己点検（ontology.yaml → 定数の導出）
+        run: python3 tools/ontology.py
+
+      - name: 決定論 lint（全案件・不変ルールの機械検証）
+        run: python3 tools/hwlint.py --all
+
+      - name: ユニットテスト
+        run: python3 -m unittest discover -s tests
+
+      - name: ontology.md が ontology.yaml と同期しているか
+        run: |
+          python3 tools/gen_ontology_doc.py
+          git diff --exit-code ontology.md \
+            || { echo '::error::ontology.md が古い。`python3 tools/gen_ontology_doc.py` で再生成してコミットしてください'; exit 1; }

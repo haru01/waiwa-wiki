@@ -1,5 +1,5 @@
 #!/bin/sh
-# 仮説検証Wiki の不変ルールをコミット時に強制する。
+# キャリア目的形成Wiki の不変ルールをコミット時に強制する。
 # 有効化: git config core.hooksPath .githooks（Claude Code は SessionStart フックが自動設定）
 set -e
 

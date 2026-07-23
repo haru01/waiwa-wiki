@@ -1,0 +1,4 @@
+# キャリア目的形成Wiki の開発依存。
+# ツール（tools/ontology.py がオントロジー正本 ontology.yaml を読む）で必要。
+# 標準ライブラリのみで動く hwlint/gen_views も、ontology.py 経由で PyYAML に依存する。
+PyYAML>=6.0

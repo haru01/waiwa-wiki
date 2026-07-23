@@ -8,6 +8,7 @@ import argparse
 import re
 import sys
 from dataclasses import dataclass
+from datetime import date
 from functools import cached_property
 from pathlib import Path
 
@@ -15,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 # 語彙(enum)・型・関係・状態機械の定義は ontology.yaml が唯一の正本。ここには再定義しない。
 from ontology import (  # noqa: E402
     STATUSES, TYPES_BY_ENTITY, C_TYPES, ACT_TYPES, DEC_TYPES, ID_RE, ENTITY_INFIXES, ENTITY_DIRS,
-    CONFIDENCE_MIN, CONFIDENCE_MAX, FICTIONAL_CAP, FICTIONAL_MARKERS,
+    CONFIDENCE_MIN, CONFIDENCE_MAX, FICTIONAL_CAP, FICTIONAL_MARKERS, STALENESS_DAYS,
     EVIDENCE_TAGS, EVIDENCE_LADDER, EVIDENCE_RANK, EVIDENCE_FLOOR, EXTERNAL_RANK_MIN,
     STATUS_BOUNDS, RELATIONS, RELATIONS_BY_FIELD,
 )
@@ -97,10 +98,11 @@ def referenced_ids(project, field, infix=None, where=None) -> set:
 
 
 class Project:
-    def __init__(self, root: Path):
+    def __init__(self, root: Path, today: date = None):
         self.root = root
         self.slug = root.name
         self.wiki = root / "wiki"
+        self.today = today or date.today()   # staleness の基準日（テストは明示注入で決定論を保つ）
         self.records = {}
         self.history = {}   # P レコードの確信度履歴を読込時に1回だけパースしてキャッシュ
         self.stray = []
@@ -527,6 +529,32 @@ def check_grounding_gaps(project) -> list:
     return problems
 
 
+STALENESS_STATUS = "立ち上がった"   # staleness を見る対象ステータス（最強＝高確信度の代理）
+
+
+def check_staleness(project) -> list:
+    """OI-G1: 立ち上がった目的で、確信度履歴の最終更新が STALENESS_DAYS より古いものを検出する（warning）。
+
+    「立ち上がった」は status-bounds で確信度 min 7 が課される最強ステータス＝高確信度の代理。
+    市場・前提が動くドメインでは、外界に触れないまま古びた高確信は再検証を要する。
+    **確信度は自動で下げない**（不変ルール）。あくまで再検証を促す可視化のみ＝warning に留める。"""
+    problems = []
+    for stem, fm, _, rows in project.purpose_records():
+        if fm.get("status") != STALENESS_STATUS or not rows:
+            continue
+        try:
+            last_date = date.fromisoformat(rows[-1]["date"])
+        except ValueError:
+            continue   # 日付が壊れている行は history 担当に委ね、ここでは黙ってスキップ
+        days = (project.today - last_date).days
+        if days > STALENESS_DAYS:
+            problems.append(Problem("warning", stem, "staleness",
+                f"status={STALENESS_STATUS} だが確信度履歴の最終更新（{rows[-1]['date']}）から {days} 日経過"
+                f"（陳腐化の疑い＝上限 {STALENESS_DAYS} 日超）。再検証（/reflect・ゆさぶり）を検討する。"
+                "数値は自動で下げない——下げるなら ACT/DEC に紐づけて人が動かす"))
+    return problems
+
+
 def check_relation_cycles(project) -> list:
     """P→P 関係（derived-from / leads-to / revises）の自己参照・循環を検出する（error）。"""
     problems = []
@@ -574,11 +602,11 @@ CHECKS = [check_id_matches_filename, check_vocabulary, check_history_consistency
           check_id_sequence, check_log_sync, check_index_sync, check_fictional_cap,
           check_evidence_tags, check_status_confidence, check_evidence_floor,
           check_dec_based_on, check_untested_focus, check_grounding_gaps,
-          check_relation_cycles]
+          check_staleness, check_relation_cycles]
 
 
-def lint_project(root: Path) -> list:
-    project = Project(root)
+def lint_project(root: Path, today: date = None) -> list:
+    project = Project(root, today=today)
     problems = []
     for check in CHECKS:
         problems.extend(check(project))
@@ -604,11 +632,13 @@ def main() -> int:
     ap.add_argument("--project", help="対象案件 slug（省略時は projects/current.md の current-project）")
     ap.add_argument("--all", action="store_true", help="全案件を対象にする")
     ap.add_argument("--repo", default=".", help="リポジトリルート")
+    ap.add_argument("--today", help="staleness 判定の基準日 YYYY-MM-DD（省略時は実行日）")
     args = ap.parse_args()
     repo = Path(args.repo).resolve()
+    today = date.fromisoformat(args.today) if args.today else None
     exit_code = 0
     for root in resolve_targets(repo, args):
-        problems = lint_project(root)
+        problems = lint_project(root, today=today)
         errors = [p for p in problems if p.level == "error"]
         warnings = [p for p in problems if p.level == "warning"]
         print(f"== {root.name}: error {len(errors)} / warning {len(warnings)}")

@@ -25,12 +25,6 @@ from ontology import (  # noqa: E402
 
 # ---- 共通ヘルパ ----
 
-def importance(fm) -> int:
-    """目的仮説の重要度。手動指定(1-10)があればそれ、無ければ既定5（表示順の補助のみ）。"""
-    imp = fm.get("importance", "")
-    return int(imp) if imp.isdigit() else 5
-
-
 def fictional_acts(project) -> list:
     """本文に架空/シミュレーションマーカーを含む ACT の stem を並べる。"""
     return sorted(s for s in project.records if "-ACT-" in s
@@ -220,12 +214,11 @@ def gen_board(project) -> str:
     if next_move:
         L.append(f"- 次の一手（[[{dec_stem}]] より）: {next_move}")
         L.append("")
-    L += ["| 目的仮説 | 確信度 | ステータス | 重要度 |", "|---|---|---|---|"]
-    for stem, fm, _, _ in sorted(purps, key=lambda r: (-importance(r[1]),
-                                                        int(r[1].get("confidence", "0") or 0))):
+    L += ["| 目的仮説 | 確信度 | ステータス |", "|---|---|---|"]
+    for stem, fm, _, _ in sorted(purps, key=lambda r: -int(r[1].get("confidence", "0") or 0)):
         emo = STATUS_EMOJI.get(fm.get("status", ""), "")
         L.append(f"| [[{stem}]] {fm.get('title', '')} | "
-                 f"{fm.get('confidence', '')} | {emo}{fm.get('status', '')} | {importance(fm)} |")
+                 f"{fm.get('confidence', '')} | {emo}{fm.get('status', '')} |")
     nxt = next_to_verify(project, purps)
     legend = "・⚠️＝試行なし＝最優先" if any(not has_act for *_, has_act in nxt) else ""
     L += ["", f"**次に外界で確かめるべき目的**（確信度低 × 未検証/探索中{legend}）:", ""]
@@ -288,13 +281,13 @@ def gen_list(project) -> str:
 
     # 目的仮説テーブル（確信度降順）
     members = sorted(purps, key=lambda x: -int(x[1].get("confidence", "0") or 0))
-    L += ["## 目的仮説", "", "| ID | タイトル | 確信度 | ステータス | 重要度 | 関連 | 直近の根拠 |",
-          "|---|---|---|---|---|---|---|"]
+    L += ["## 目的仮説", "", "| ID | タイトル | 確信度 | ステータス | 関連 | 直近の根拠 |",
+          "|---|---|---|---|---|---|"]
     for s, fm, _, hist in members:
         core = "★" if is_core(fm) else ""
         emo = STATUS_EMOJI.get(fm.get("status", ""), "")
         L.append(f"| [[{s}]]{core} | {fm.get('title', '')} | {fm.get('confidence', '')} | "
-                 f"{emo}{fm.get('status', '')} | {importance(fm)} | {related_links(s, fm, act_by_purp)} | "
+                 f"{emo}{fm.get('status', '')} | {related_links(s, fm, act_by_purp)} | "
                  f"{trunc(latest_reason(hist), 44)} |")
     L.append("")
 

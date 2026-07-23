@@ -241,6 +241,8 @@ def related_links(stem, fm, act_by_purp) -> str:
         parts.append(f"⟲ 書換 [[{rv}]]")
     if (lt := parse_id_array(fm.get("leads-to", ""))):
         parts.append("→ " + " ".join(f"[[{t}]]" for t in lt))
+    if (ct := parse_id_array(fm.get("counters", ""))):
+        parts.append("⚡対抗 " + " ".join(f"[[{t}]]" for t in ct))
     if (acts := sorted(act_by_purp.get(stem, []))):
         parts.append(" ".join(f"[[{a}]]" for a in acts))
     return " ・ ".join(parts) if parts else "—"
@@ -256,7 +258,7 @@ def gen_list(project) -> str:
     L = header_lines("list", mode, today, fictional_acts(project))
     L += ["", f"# 目的仮説リスト（{project.slug}）", ""]
     L.append("★=核心目的（`core`）。関連列は ← 派生元（`derived-from`）／⟲ 書換（`revises`）／"
-             "→ 因果先（`leads-to`）／検証活動（ACT）。")
+             "→ 因果先（`leads-to`）／⚡対抗（`counters`）／検証活動（ACT）。")
 
     # 系譜グラフ（ノード=目的、矢印=leads-to / derived-from / revises）
     L += ["", "## 目的の系譜", "", "```mermaid", "flowchart TB"]

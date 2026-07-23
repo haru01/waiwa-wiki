@@ -25,7 +25,8 @@ def load() -> dict:
 class Relation:
     """関係型1件。domain→range・cardinality・inverse を保持する。"""
     __slots__ = ("name", "field", "domain", "range", "domain_subtypes", "range_subtypes",
-                 "cardinality", "inverse", "must_wikilink", "label", "inverse_label", "description")
+                 "cardinality", "inverse", "must_wikilink", "acyclic",
+                 "label", "inverse_label", "description")
 
     def __init__(self, d: dict):
         self.name = d["name"]
@@ -37,6 +38,9 @@ class Relation:
         self.cardinality = d.get("cardinality", "many")  # "one" | "many"
         self.inverse = d.get("inverse", "")
         self.must_wikilink = bool(d.get("must-wikilink", False))
+        # domain==range の関係で多ノード循環を禁止するか。既定 true（系譜は非循環）。
+        # counters のように相互（A↔B）が正当な関係は false（自己参照のみ禁止・相互は許容）。
+        self.acyclic = bool(d.get("acyclic", True))
         self.label = d.get("label", self.name)
         self.inverse_label = d.get("inverse-label", self.inverse)
         self.description = d.get("description", "")

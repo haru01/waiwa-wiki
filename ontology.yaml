@@ -144,6 +144,40 @@ relations:
     inverse-label: 導いた判断
     description: この意思決定の根拠となった試行
 
+  - name: affects
+    field: affects
+    domain: DEC
+    range: P
+    cardinality: many
+    inverse: affected-by
+    must-wikilink: true
+    label: 影響目的
+    inverse-label: 影響した判断
+    description: この意思決定が動かした目的仮説（ピボット・巻き戻し・意図的引き下げ等の対象）。目的側から形成の来歴を辿れる
+
+  - name: supersedes
+    field: supersedes
+    domain: DEC
+    range: DEC
+    cardinality: many
+    inverse: superseded-by
+    must-wikilink: true
+    label: 上書き元
+    inverse-label: 上書きした判断
+    description: この意思決定が上書き／後継する旧意思決定（旧判断を消さずに覆しの系譜を残す）
+
+  - name: counters
+    field: counters
+    domain: P
+    range: P
+    cardinality: many
+    inverse: countered-by
+    must-wikilink: true
+    acyclic: false          # A↔B の相互対抗は正当（自己参照 A→A のみ禁止・相互ループは循環扱いしない）
+    label: 対抗
+    inverse-label: 対抗される
+    description: この目的仮説が対抗する目的仮説（/lemonade 由来の対立仮説・ピボットの種。偽の収束への歯止め）
+
 # ── 状態機械 ────────────────────────────────────────────────────────
 state-machines:
   # 形成ステータス（並び順 = ビューの集計・表示順）

@@ -36,9 +36,10 @@
 
 ## E. オントロジーの表現力拡張（要設計合意）
 
-実データのプローズには存在するのに、現7関係（`derived-from`/`leads-to`/`grounded-in`/`revises`/
-`purposes`/`reflects-on`/`based-on`）では表せない構造。新関係・新属性の導入は SSoT の設計変更なので、
-人間の合意を要する。
+実データのプローズには存在するのに、既存関係では表せない構造。新関係・新属性の導入は SSoT の設計変更なので、
+人間の合意を要する。**E3（`affects`）・E4（`supersedes`/`counters`）は合意のうえ実装済み**（関係は現在10種:
+`derived-from`/`leads-to`/`grounded-in`/`revises`/`counters`/`purposes`/`reflects-on`/`based-on`/
+`affects`/`supersedes`）。残るは E1（cluster）・E2（ACT→P 極性）。
 
 ### OI-E1: 目的のクラスタ（グルーピング）
 
@@ -64,25 +65,29 @@
 ### OI-E3: DEC→P 直接参照
 
 - **対象**: `ontology.yaml`
-- **状態**: 未対応（要設計）
-- **課題**: 意思決定がどの目的仮説を動かしたかが型で表せない（`based-on` は DEC→ACT のみ）。
-  ピボット・巻き戻し・意図的引き下げが対象目的を frontmatter で指せず、本文プローズ止まりになる。
-- **改善案（案）**: DEC→P の `affects`/`revisits` 関係を検討。relations ビューのバックリンク索引に出す。
-- **根拠**: `ontology.yaml` relations に DEC→P が無い（`based-on` は DEC→ACT）。
+- **状態**: **対応済み**（`affects` 関係）
+- **課題**: 意思決定がどの目的仮説を動かしたかが型で表せなかった（`based-on` は DEC→ACT のみ）。
+  ピボット・巻き戻し・意図的引き下げが対象目的を frontmatter で指せず、本文プローズ止まりだった。
+- **実装**: DEC→P の `affects`（inverse: affected-by「影響した判断」）を追加。config 駆動で
+  `relations` ビューのバックリンク索引に自動掲載＝目的側から形成の来歴を辿れる。templates/decision.md・
+  CLAUDE.md にも記載。テストは `tests/test_hwlint.py::AffectsTest`。
+- **根拠**: `ontology.yaml` relations に DEC→P が無かった（`based-on` は DEC→ACT）。
 
 ### OI-E4: DEC→DEC（取り消し/後継）・対抗目的・反証の連鎖
 
 - **対象**: `ontology.yaml`
-- **状態**: 未対応（要設計）
+- **状態**: **対応済み**（DEC→DEC `supersedes`・P→P `counters`）／反証の連鎖は未対応（OI-E2 の極性待ち）
 - **課題**:
-  - **DEC→DEC**: ある意思決定が過去の意思決定を巻き戻す／上書きする関係が frontmatter に無い。
+  - **DEC→DEC**: ある意思決定が過去の意思決定を巻き戻す／上書きする関係が frontmatter に無かった。
   - **対抗目的**: `/lemonade`（レモネード）で生まれる対抗仮説・ピボットの種が、既存目的の「対抗」
-    として記録されるが型が無くプローズ止まり。
-  - **反証の連鎖**: ある目的の反証が `leads-to`（因果の型）で下流目的へ伝播する構造を、因果と
-    区別して表せない。
-- **改善案（案）**: DEC→DEC の `supersedes`、P→P の `counters`（対抗）を検討。反証伝播は極性（OI-E2）＋
-  `leads-to` の合成でビュー側に表現する手もある。G2（下記）と同じ設計空間なので統合検討する。
-- **根拠**: `ontology.yaml` relations（現7関係）に DEC→DEC・P→P 対抗が無い。
+    として記録されるが型が無くプローズ止まりだった。
+  - **反証の連鎖**（未対応）: ある目的の反証が `leads-to`（因果の型）で下流目的へ伝播する構造は、
+    ACT→P の極性（OI-E2・保留中）と `leads-to` の合成が要るため、E2 実装後に再検討する。
+- **実装**: DEC→DEC の `supersedes`（inverse: superseded-by・循環禁止）と P→P の `counters`
+  （inverse: countered-by・**相互対抗 A↔B は正当なので `acyclic: false`**＝自己参照のみ禁止）を追加。
+  `check_relation_cycles` を「domain==range の全関係」に一般化し supersedes を循環検査対象に含めた。
+  テストは `tests/test_hwlint.py::SupersedesTest`・`CountersTest`。
+- **根拠**: `ontology.yaml` relations（旧7関係）に DEC→DEC・P→P 対抗が無かった。
 
 ---
 
@@ -138,13 +143,15 @@
 ### OI-G2: Supersession（旧目的のアーカイブ）の型表現
 
 - **対象**: `ontology.yaml`
-- **状態**: 未対応（要設計・E4 と統合検討）
+- **状態**: 部分対応（DEC→DEC `supersedes` は追加済み）／P の明示 stale/superseded 状態は未対応
 - **課題**: 「この目的は新目的に置き換えられ古い（stale/superseded）」という明示状態が無い。
   `derived-from`（系譜）＋`revises`（書き換え）＋履歴テーブルで部分的に実現しているが、
   「旧版を消さずアーカイブ状態にする」型が無い。
-- **改善案（案）**: 独立の新関係は増やさず、OI-E4（DEC→DEC `supersedes`・反証の連鎖）の検討に
-  「P の stale/superseded 状態」を合流させる。G は G1（低リスク・可視化のみ）を先行させる。
-- **根拠**: `ontology.yaml` relations（`derived-from`/`revises`）、OI-E4。
+- **達成/残り**: 意思決定の後継は OI-E4 の `supersedes`（DEC→DEC）で表現できるようになった。
+  残るのは「P 自体の superseded 状態」だが、新 status の追加は状態機械を膨らませるため保留。
+  当面は `棚上げ` ＋ `revises`/`derived-from` ＋ `supersedes` の合成で表す。必要性が実データで
+  裏づけられたら再検討する。
+- **根拠**: `ontology.yaml` relations（`derived-from`/`revises`/`supersedes`）、OI-E4。
 
 ---
 
@@ -168,7 +175,9 @@
 ## 着手順の目安
 
 1. ~~**G1（staleness 可視化）**~~ — **対応済み**（`hwlint.check_staleness`・`staleness-days: 180`）。
-2. **F1（トポロジー指標）** — `relations` ビューへの要約表追加。実データが増えて運用実感が出てから。
-3. **E（表現力拡張）** — 設計合意を要するため、実運用の手応えを踏まえて別途議論する（G2 を合流）。
-   E2（ACT→P 極性）と E3/E4（DEC→P・DEC→DEC）は、`/reflect`・`/decide` の実データが溜まってから
-   実際に「型が無くて困った」場面を根拠に判断する。
+2. ~~**E3+E4（DEC→P `affects`・DEC→DEC `supersedes`・P→P `counters`）**~~ — **対応済み**
+   （G2 の DEC→DEC 部分も合流）。config 駆動で lint/relations ビュー/ontology.md に自動追従。
+3. **F1（トポロジー指標）** — `relations` ビューへの要約表追加。実データが増えて運用実感が出てから。
+4. **E1（cluster）・E2（ACT→P 極性）** — 残りの表現力拡張。E1 は属性 vs 関係の設計分岐、E2 は ACT
+   `outcome` との役割重複の整理が要る。`/reflect`・`/decide` の実データが溜まり「型が無くて困った」
+   場面を根拠に判断する（それまで保留）。反証の連鎖（OI-E4）は E2 の極性が入ってから再検討。

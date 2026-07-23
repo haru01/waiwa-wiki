@@ -4,11 +4,17 @@ title: 短いタイトル
 date: YYYY-MM-DD
 type: ピボット              # モード切替 | ピボット | 継続 | 巻き戻し | 棚上げ | 意図的引き下げ
 based-on: [<PREFIX>-ACT-NNN]   # 接頭辞つきで書く（例 [SELF-ACT-001]）。根拠となった試行
+affects: [<PREFIX>-P-NNN]      # 省略可。この判断が動かした目的仮説（ピボット/巻き戻し/引き下げ等の対象）。目的側から来歴を辿れる
+supersedes: [<PREFIX>-DEC-NNN] # 省略可。この判断が上書き/後継する旧意思決定（旧判断を消さず覆しの系譜を残す）
 ---
 
 # 短いタイトル
 
 根拠となった活動: [[ACT-NNN]]
+
+<!-- affects / supersedes を frontmatter に書いたら、本文にも必ず wikilink を張る（Obsidian グラフに辺を出すため）。
+     影響した目的: [[P-NNN]] ／ 上書きする旧判断: [[DEC-NNN]] -->
+影響した目的: [[P-NNN]]
 
 ## 確信度スナップショット
 

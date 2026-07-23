@@ -162,7 +162,7 @@ def check_id_matches_filename(project) -> list:
 def check_vocabulary(project) -> list:
     """status・type・confidence の語彙/範囲を規約に照らして検証する。
 
-    - P: status・confidence（1-10 整数）・importance(省略可・1-10) を検証。type は持たない。
+    - P: status・confidence（1-10 整数）を検証。type は持たない。
     - C/ACT/DEC: type がそのエンティティのサブタイプ enum に含まれること。
     - REF: type/confidence を持たない（内省は確信度なし）。"""
     problems = []
@@ -175,10 +175,6 @@ def check_vocabulary(project) -> list:
             if not (c.isdigit() and CONFIDENCE_MIN <= int(c) <= CONFIDENCE_MAX):
                 problems.append(Problem("error", stem, "vocab",
                     f"confidence '{c}' は {CONFIDENCE_MIN}-{CONFIDENCE_MAX} の整数でない"))
-            imp = fm.get("importance", "")
-            if imp and not (imp.isdigit() and CONFIDENCE_MIN <= int(imp) <= CONFIDENCE_MAX):
-                problems.append(Problem("error", stem, "vocab",
-                    f"importance '{imp}' は {CONFIDENCE_MIN}-{CONFIDENCE_MAX} の整数（省略可）"))
         elif ent in ("C", "ACT", "DEC"):
             enum = TYPES_BY_ENTITY[ent]
             if fm.get("type") not in enum:

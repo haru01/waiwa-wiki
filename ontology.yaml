@@ -160,6 +160,7 @@ state-machines:
     max: 10
     fictional-cap: 8          # 架空／脳内シミュレーション由来の確信度は上限8
     fictional-markers: [架空, シミュレーション]   # 架空データを示す本文マーカー語彙（fictional-cap 判定に使う）
+    staleness-days: 180       # 立ち上がった目的の確信度履歴最終行がこの日数より古いと陳腐化の疑い（再検証を促す可視化のみ・数値は自動で下げない）
     # status × 確信度の許容域（外れたら warning）。
     status-bounds:
       立ち上がった: {min: 7}     # 立ち上がったのに確信度が低い

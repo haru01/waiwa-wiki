@@ -534,6 +534,59 @@ class GroundingGapTest(unittest.TestCase):
             self.assertEqual(only(root, "grounding-gap"), [])
 
 
+class StalenessTest(unittest.TestCase):
+    """OI-G1: 立ち上がった目的で確信度履歴の最終更新が古い（>staleness-days）ものを warning。"""
+
+    def _launched(self, last_date):
+        # 立ち上がった＝確信度 min 7。最終履歴行の日付を last_date にする。
+        rows = ["| 2026-01-01 | 1 | 未検証 | 初期作成 | — |",
+                f"| {last_date} | 7 | 立ち上がった | 〈他者反応〉繰り返し起きた | [[DEMO-ACT-001]] |"]
+        return purpose(status="立ち上がった", confidence="7", rows=rows)
+
+    def _staleness(self, root, today):
+        return [p for p in hwlint.lint_project(root, today=today) if p.check == "staleness"]
+
+    def test_stale_launched_detected(self):
+        from datetime import date
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/purposes/DEMO-P-001.md": self._launched("2026-01-10"),
+                "wiki/activities/DEMO-ACT-001.md": act(),
+            })
+            self.assertTrue(self._staleness(root, date(2026, 12, 31)))   # 約1年経過
+
+    def test_fresh_launched_ok(self):
+        from datetime import date
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/purposes/DEMO-P-001.md": self._launched("2026-12-01"),
+                "wiki/activities/DEMO-ACT-001.md": act(),
+            })
+            self.assertEqual(self._staleness(root, date(2026, 12, 31)), [])   # 30日＜180日
+
+    def test_non_launched_stale_ok(self):
+        # 探索中は staleness の対象外（古い日付でも出さない）
+        from datetime import date
+        rows = ["| 2026-01-01 | 1 | 未検証 | 初期作成 | — |",
+                "| 2026-01-10 | 6 | 探索中 | 〈試行〉 | [[DEMO-ACT-001]] |"]
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/purposes/DEMO-P-001.md": purpose(status="探索中", confidence="6", rows=rows),
+                "wiki/activities/DEMO-ACT-001.md": act(),
+            })
+            self.assertEqual(self._staleness(root, date(2026, 12, 31)), [])
+
+    def test_staleness_is_warning(self):
+        from datetime import date
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(tmp, {
+                "wiki/purposes/DEMO-P-001.md": self._launched("2026-01-10"),
+                "wiki/activities/DEMO-ACT-001.md": act(),
+            })
+            hits = self._staleness(root, date(2026, 12, 31))
+            self.assertTrue(all(p.level == "warning" for p in hits))
+
+
 class RelationCycleTest(unittest.TestCase):
     def test_self_reference_detected(self):
         rec = purpose(id="DEMO-P-001", extra="derived-from: DEMO-P-001")

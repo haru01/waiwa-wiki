@@ -122,15 +122,17 @@
 ### OI-G1: 高確信・立ち上がった目的の staleness 検出（低リスク・先行推奨）
 
 - **対象**: `tools/hwlint.py`、`ontology.yaml`
-- **状態**: 未対応（要設計・閾値合意）
+- **状態**: **対応済み**（`hwlint.check_staleness`）
 - **課題**: `status: 立ち上がった` かつ高確信度の目的で、確信度履歴の**最終行の日付が古い**ものを
-  「陳腐化の疑い＝再検証を検討」として出せるのに出していない。
-- **改善案（案）**:
-  1. `ontology.yaml` の confidence 節に `staleness-days`（例: 180）を追加（マジックナンバーをコードに置かない）。
-  2. hwlint に基準日（`--today` 引数 or `datetime.date.today()`）を渡し、最終履歴日付が閾値超の目的を warning。
-  3. **数値は自動で下げない**（不変ルール「証拠なしに確信度を動かさない」を厳守）。あくまで再検証を促す
-     可視化のみ。下げたい場合は必ず ACT/DEC（例: `self-reflection` や再検証の試行）に紐づけて人が動かす。
-- **根拠**: `parse_history`（履歴日付は取得済み・未活用）、CLAUDE.md「長期放置は `/lint`（LLM）が担う」記述、
+  「陳腐化の疑い＝再検証を検討」として出せるのに出していなかった。
+- **実装**:
+  1. `ontology.yaml` の confidence 節に `staleness-days: 180` を追加（マジックナンバーをコードに置かない・
+     `ontology.STALENESS_DAYS` に射影・`ontology.md` にも記載）。
+  2. `hwlint.check_staleness` が基準日（`--today` 引数 or `datetime.date.today()`＝`Project.today`）を使い、
+     `立ち上がった` 目的の確信度履歴最終行が閾値超のものを **warning**（error にしない）で報告。
+  3. **数値は自動で下げない**（不変ルール厳守）。再検証を促す可視化のみ。下げたい場合は必ず ACT/DEC
+     （例: `self-reflection` や再検証の試行）に紐づけて人が動かす。テストは `tests/test_hwlint.py::StalenessTest`。
+- **根拠**: `parse_history`（履歴日付は取得済み）、CLAUDE.md「長期放置は `/lint`（LLM）が担う」記述、
   不変ルール（確信度・ステータスの変更は必ず ACT/DEC に紐づける）。
 
 ### OI-G2: Supersession（旧目的のアーカイブ）の型表現
@@ -165,8 +167,7 @@
 
 ## 着手順の目安
 
-1. **G1（staleness 可視化）** — `staleness-days` 閾値の合意だけで着手でき、低リスク（可視化のみ・
-   数値は動かさない）。既存の lint チェック追加＋`ontology.yaml` への閾値追加＋`tests/` へのケース追加で収まる。
+1. ~~**G1（staleness 可視化）**~~ — **対応済み**（`hwlint.check_staleness`・`staleness-days: 180`）。
 2. **F1（トポロジー指標）** — `relations` ビューへの要約表追加。実データが増えて運用実感が出てから。
 3. **E（表現力拡張）** — 設計合意を要するため、実運用の手応えを踏まえて別途議論する（G2 を合流）。
    E2（ACT→P 極性）と E3/E4（DEC→P・DEC→DEC）は、`/reflect`・`/decide` の実データが溜まってから

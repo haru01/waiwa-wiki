@@ -59,6 +59,8 @@ def build() -> str:
           f"- 範囲: **{ontology.CONFIDENCE_MIN}–{ontology.CONFIDENCE_MAX}**（その目的仮説がどれだけ「これだ」と感じられているか）",
           f"- 架空/脳内シミュレーション由来の確信度は上限 **{ontology.FICTIONAL_CAP}**"
           f"（本文マーカー: {'・'.join(ontology.FICTIONAL_MARKERS)}）",
+          f"- `立ち上がった` 目的は確信度履歴の最終更新から **{ontology.STALENESS_DAYS}日** を超えると"
+          "陳腐化の疑いとして再検証を促す（可視化のみ・数値は自動で下げない）",
           "- 証拠の階梯（外界にどれだけ触れたか。弱→強）: "
           + " ＜ ".join(f"〈{t}〉" for t in ontology.EVIDENCE_LADDER),
           "- 階梯外の補助タグ: " + "・".join(f"〈{t}〉" for t in ontology.EVIDENCE_AUX),

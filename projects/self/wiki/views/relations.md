@@ -1,4 +1,4 @@
-<!-- 生成物: gen_views.py relations による機械生成。手編集禁止。`python3 tools/gen_views.py relations` で再生成する。生成基準日: 2026-07-23（モード 探索） -->
+<!-- 生成物: gen_views.py relations による機械生成。手編集禁止。`python3 tools/gen_views.py relations` で再生成する。生成基準日: 2026-07-24（モード 探索） -->
 
 # 関係グラフ（self）
 
@@ -18,7 +18,7 @@ flowchart LR
       SELF_C_004["C-004 社内のエンジニア／チーム（試作を見せられ…"]
     end
     subgraph ACT["試行 ACT"]
-      SELF_ACT_001["ACT-001 訪問先マネージャ2人にwaiwa-wik…"]
+      SELF_ACT_001["ACT-001 訪問先マネージャ2人にtachiagar…"]
     end
     SELF_P_001 -->|接地する制約| SELF_C_001
     SELF_P_001 -->|接地する制約| SELF_C_002

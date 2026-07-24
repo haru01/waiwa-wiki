@@ -1,8 +1,8 @@
-<!-- 生成物: gen_views.py list による機械生成。手編集禁止。`python3 tools/gen_views.py list` で再生成する。生成基準日: 2026-07-23（モード 探索） -->
+<!-- 生成物: gen_views.py list による機械生成。手編集禁止。`python3 tools/gen_views.py list` で再生成する。生成基準日: 2026-07-24（モード 探索） -->
 
 # 目的仮説リスト（self）
 
-★=核心目的（`core`）。関連列は ← 派生元（`derived-from`）／⟲ 書換（`revises`）／→ 因果先（`leads-to`）／検証活動（ACT）。
+★=核心目的（`core`）。関連列は ← 派生元（`derived-from`）／⟲ 書換（`revises`）／→ 因果先（`leads-to`）／⚡対抗（`counters`）／検証活動（ACT）。
 
 ## 目的の系譜
 
